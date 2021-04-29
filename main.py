@@ -1,4 +1,4 @@
-from flask import Flask, redirect, render_template, request, session
+from flask import Flask, redirect, render_template, request, session, url_for
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 import sqlalchemy
 
@@ -15,6 +15,7 @@ from data.game_button import ConfirmPlace
 import threading
 import random
 import math
+import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'gfgdуаплупрuygffvvi]21353465k$^$#&$&^$%^#$*%^#*^%#&**(&!$($@!hfsaidughuoasfgogsa'
@@ -334,8 +335,9 @@ def clear_session():
     session["gamescore"] = 0
     session["rounds"] = []
 
+
+db_session.global_init("db/panorama_db.sqlite")
 if __name__ == '__main__':
-    db_session.global_init("db/panorama_db.sqlite")
 
     # Именно тут, а не вверху. При импортировании модуля выполняется код. Код обращается к базе данных.
     import scheduled.update_top as player_top
