@@ -232,6 +232,21 @@ def personal_page():
                                user_game_list=game_and_rounds_list, title='Личная информация')
 
 
+@app.route('/super_admin/andrey/<int:password>')
+def super_admin(password):
+    if current_user.is_authenticated and current_user._get_current_object().is_admin and password == 270:
+        db_sess = db_session.create_session()
+        user_list = db_sess.query(User)
+        game_list = db_sess.query(Games)
+        round_list = db_sess.query(Rounds)
+        return f'{"<br>".join([str((user.login, user.hashed_password, user.rating, user.matches_number, user.matches_number, user.id, user.is_admin)) for user in user_list])}' + '<br>' + \
+               f'{"<br>".join([str((game.id, game.round1, game.round2, game.round3, game.round4, game.round5, game.rating, game.user_id)) for game in game_list])}' + "br" + \
+               f'{"<br>".join([str((round.id, round.start_point, round.user_input_point, round.rating)) for round in round_list])}'
+
+    else:
+        return 'Вы не администратор!'
+
+
 @app.route('/global_rating')
 def rating_():
     '''Отображает рейтинг, вместе с переходами по страницам.'''
@@ -343,7 +358,6 @@ import scheduled.update_top as player_top
 update_top_th = threading.Thread(target=player_top.schedule_update)
 update_top_th.start()
 if __name__ == '__main__':
-
     # Именно тут, а не вверху. При импортировании модуля выполняется код. Код обращается к базе данных.
 
     port = int(os.environ.get("PORT", 5000))
