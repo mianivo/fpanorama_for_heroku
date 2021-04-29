@@ -17,7 +17,7 @@ import random
 import math
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'yandexlyceum_secret_key'
+app.config['SECRET_KEY'] = 'gfgdуаплупрuygffvvi]21353465k$^$#&$&^$%^#$*%^#*^%#&**(&!$($@!hfsaidughuoasfgogsa'
 login_manager = LoginManager()
 login_manager.init_app(app)
 
@@ -25,10 +25,10 @@ login_manager.init_app(app)
 def getdistance(c1, c2):
     x = (c2[1] - c1[1])
     y = (c2[0] - c1[0])
-    y *= math.cos(math.radians((c2[1] + c1[1])/2))
+    y *= math.cos(math.radians((c2[1] + c1[1]) / 2))
     x *= 111
     y *= 111
-    return math.sqrt(x**2 + y**2)
+    return math.sqrt(x ** 2 + y ** 2)
 
 
 @login_manager.user_loader
@@ -146,7 +146,7 @@ def admin(page_number=0):
                 rating_list = []
                 for user in player_top.global_top_player:
                     if (form.login.data in user[3] and
-                        form.nickname.data in user[0] and
+                            form.nickname.data in user[0] and
                             search_rating in user[1] and
                             search_matches_number in user[2]):
                         rating_list.append(user)
@@ -216,12 +216,19 @@ def personal_page():
         matches_number = current_user.matches_number
         rating = current_user.rating
         db_sess = db_session.create_session()
-        user_game_list = db_sess.query(Rounds).filter(Rounds.user_id == current_user.id)
+        user_game_list = db_sess.query(Games).filter(Games.user_id == current_user.id)
         if len(list(user_game_list)) > 20:
             user_game_list = user_game_list[:20]
+        game_and_rounds_list = []
+        for game in user_game_list:
+            rounds_list = []
+            for round_id in (game.round1, game.round2, game.round3, game.round4, game.round5):
+                round = db_sess.query(Rounds).filter(Rounds.id == round_id).first()
+                rounds_list.append(round)
+            game_and_rounds_list.append((game, rounds_list))
         return render_template('personal_page.html', nickname=nickname,
                                login=login, matches_number=matches_number, rating=rating, current_user=current_user,
-                               user_game_list=user_game_list, title='Личная информация')
+                               user_game_list=game_and_rounds_list, title='Личная информация')
 
 
 @app.route('/global_rating')
@@ -245,9 +252,11 @@ def rating(page_number=0):
 
 @app.route('/game', methods=['GET', 'POST'])
 def game():
+    '''Отображает страницу с игрой и результатами раундов/игр'''
     db_sess = db_session.create_session()
-    form = ConfirmPlace()
+    form = ConfirmPlace()  # Кнопка отправки выбранных координат
     if request.method == "GET":
+        # выбираются рандомные координаты из базы данных
         p = random.randint(1, db_sess.query(PanoramaPoints).count())
         p = db_sess.query(PanoramaPoints).filter(PanoramaPoints.id == p).first()
         y = p.y
@@ -259,6 +268,7 @@ def game():
         session["x"] = x
         session["y"] = y
     if form.validate_on_submit():
+        # из сессии считываются число раундов, раунды и счет
         gamenum = session.get('gamenum', 0)
         gamescore = session.get('gamescore', 0)
         rounds = session.get('rounds', [])
@@ -268,12 +278,13 @@ def game():
         coords = [float(i) for i in form.rating.data.split(", ")]
         dist = getdistance([y, x], coords)
         if dist:
-            score = int(5000 / (dist + 1))
+            score = max(int((5000 - dist) / 5), 0)
             gamescore += score
             if current_user.is_authenticated:
+                # если пользователь авторизирован то записываем его раунд и счет в базу данных
                 curround = Rounds()
-                curround.start_point = f"{x}%{y}"
-                curround.user_input_point = f"{coords[1]}%{coords[0]}"
+                curround.start_point = f"{x},{y}"
+                curround.user_input_point = f"{coords[1]},{coords[0]}"
                 curround.rating = score
                 db_sess.add(curround)
                 db_sess.commit()
@@ -281,44 +292,55 @@ def game():
                 rounds.append(roundid)
                 session["rounds"] = rounds
             if gamenum != 5:
+                # если игра из 5 раундов все еще идет
                 session["gamenum"] = gamenum
                 session["gamescore"] = gamescore
                 return render_template('roundresult.html', dist=dist, score=score,
-                                       pts=f"http://static-maps.yandex.ru/1.x/?ll=99.505405,61.6986538&spn=40,50&pt={coords[1]},{coords[0]}~{x},{y}&l=map",
+                                       y1=coords[1], x1=coords[0], y2=x, x2=y,
                                        gamescore=gamescore, gamenum=gamenum)
             else:
+                # если игра закончилась
                 if current_user.is_authenticated:
+                    # если пользователь авторизирован то записываем его игру и счет в базу данных
                     curgame = Games()
+                    userid = current_user._get_current_object().id
                     curgame.round1 = rounds[0]
                     curgame.round2 = rounds[1]
                     curgame.round3 = rounds[2]
                     curgame.round4 = rounds[3]
                     curgame.round5 = rounds[4]
                     curgame.rating = gamescore
-                    curgame.user_id = current_user._get_current_object().id
+                    curgame.user_id = userid
                     db_sess.add(curgame)
+                    db_sess.commit()
+                    if gamescore > int(current_user._get_current_object().rating):
+                        current_user._get_current_object().rating = gamescore
+                    db_sess.merge(current_user._get_current_object())
+                    db_sess.commit()
+                    current_user._get_current_object().matches_number = current_user._get_current_object().matches_number + 1
+                    db_sess.merge(current_user._get_current_object())
                     db_sess.commit()
                 clear_session()
                 return render_template('gameresult.html', dist=dist, score=score,
-                                       pts=f"http://static-maps.yandex.ru/1.x/?ll=99.505405,61.6986538&spn=40,50&pt={coords[1]},{coords[0]}~{x},{y}&l=map",
+                                       y1=coords[1], x1=coords[0], y2=x, x2=y,
                                        gamescore=gamescore, gamenum=gamenum)
+    else:
+        return render_template('game.html', coords=f"{y}, {x}", form=form)
+
 
 def clear_session():
+    '''Обнуляет число раундов, раунды и счет'''
     session["gamenum"] = 0
     session["gamescore"] = 0
     session["rounds"] = []
 
 
-def main():
-    db_session.global_init("db/panorama_db.sqlite")
-    app.run()
+db_session.global_init("db/panorama_db.sqlite")
 
-
-main()
-
-# Именно тут, а не вверху. Важен код выполняющийся внутри кода при импортировании
+# Именно тут, а не вверху. При импортировании модуля выполняется код. Код обращается к базе данных.
 import scheduled.update_top as player_top
 
 # создается поток, чтобы обновлять список пользователей
 update_top_th = threading.Thread(target=player_top.schedule_update)
 update_top_th.start()
+app.run()
