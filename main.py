@@ -334,13 +334,14 @@ def clear_session():
     session["gamescore"] = 0
     session["rounds"] = []
 
+if __name__ == '__main__':
+    db_session.global_init("db/panorama_db.sqlite")
 
-db_session.global_init("db/panorama_db.sqlite")
+    # Именно тут, а не вверху. При импортировании модуля выполняется код. Код обращается к базе данных.
+    import scheduled.update_top as player_top
 
-# Именно тут, а не вверху. При импортировании модуля выполняется код. Код обращается к базе данных.
-import scheduled.update_top as player_top
-
-# создается поток, чтобы обновлять список пользователей
-update_top_th = threading.Thread(target=player_top.schedule_update)
-update_top_th.start()
-app.run()
+    # создается поток, чтобы обновлять список пользователей
+    update_top_th = threading.Thread(target=player_top.schedule_update)
+    update_top_th.start()
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
